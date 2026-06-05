@@ -1,76 +1,86 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { quienMasProbable } from '../data/quienMasProbable';
+import EspejoIndicator from '../components/EspejoIndicator';
+import ReglasModal from '../components/ReglasModal';
+import TurnoIndicator from '../components/TurnoIndicator';
+import BackToHomeButton from '../components/BackToHomeButton';
 
-const MAX_SALTOS = 3;
+const TOTAL_RONDAS = 3;
+const _usadasSesion = new Set();
 
-function itemAleatorio() {
-  return quienMasProbable[Math.floor(Math.random() * quienMasProbable.length)];
+const REGLAS = [
+  'Se juegan 3 preguntas en total',
+  'Se lee "¿Quién es más probable que...?"',
+  'Todos señalan al mismo tiempo al que creen más probable',
+  'El más señalado toma un sorbo',
+  'Después de las 3 preguntas termina la ronda',
+];
+
+function itemAleatorio(usados) {
+  const disponibles = quienMasProbable.filter((_, i) => !usados.includes(i) && !_usadasSesion.has(i));
+  const pool = disponibles.length > 0 ? disponibles : quienMasProbable.filter((_, i) => !usados.includes(i));
+  if (pool.length === 0) return { item: quienMasProbable[0], index: 0 };
+  const idx = Math.floor(Math.random() * pool.length);
+  const item = pool[idx];
+  const index = quienMasProbable.indexOf(item);
+  _usadasSesion.add(index);
+  return { item, index };
 }
 
 export default function QuienMasProbable({ navigation }) {
-  const [pregunta, setPregunta] = useState(itemAleatorio());
-  const [saltos, setSaltos] = useState(0);
-  const [penalizado, setPenalizado] = useState(false);
+  const [usados, setUsados] = useState([]);
+  const [{ item, index }, setActual] = useState(() => {
+    const i = Math.floor(Math.random() * quienMasProbable.length);
+    return { item: quienMasProbable[i], index: i };
+  });
+  const [ronda, setRonda] = useState(1);
+  const [reglasVisible, setReglasVisible] = useState(false);
 
   function siguiente() {
-    const nuevosSaltos = saltos + 1;
-    setSaltos(nuevosSaltos);
-    if (nuevosSaltos >= MAX_SALTOS) {
-      setPenalizado(true);
-    } else {
-      setPregunta(itemAleatorio());
+    const nuevosUsados = [...usados, index];
+    const siguienteRonda = ronda + 1;
+    if (siguienteRonda > TOTAL_RONDAS) {
+      navigation.navigate('EndRound');
+      return;
     }
+    const next = itemAleatorio(nuevosUsados);
+    setUsados(nuevosUsados);
+    setActual(next);
+    setRonda(siguienteRonda);
   }
 
-  if (penalizado) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>👆 ¿Quién es más probable?</Text>
-        <View style={styles.penaltyBox}>
-          <Text style={styles.penaltyEmoji}>🍺</Text>
-          <Text style={styles.penaltyText}>Pasaste 3 veces</Text>
-          <Text style={styles.penaltySubtext}>Tomá 2 sorbos</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.btnTerminar}
-          onPress={() => navigation.navigate('EndRound')}
-        >
-          <Text style={styles.btnTerminarText}>Terminar ronda</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const esUltima = ronda === TOTAL_RONDAS;
 
   return (
     <View style={styles.container}>
+      <ReglasModal visible={reglasVisible} onClose={() => setReglasVisible(false)} titulo="👆 ¿Quién más probable? — Reglas" color="#D4537E" reglas={REGLAS} />
+
       <View style={styles.header}>
+        <BackToHomeButton navigation={navigation} />
         <Text style={styles.title}>👆 ¿Quién es más probable?</Text>
-        {saltos > 0 && (
-          <Text style={styles.saltosText}>{saltos}/{MAX_SALTOS}</Text>
-        )}
+        <Text style={styles.rondaText}>{ronda}/{TOTAL_RONDAS}</Text>
+        <TouchableOpacity onPress={() => setReglasVisible(true)} style={styles.btnInfo}>
+          <Text style={styles.btnInfoText}>ℹ️</Text>
+        </TouchableOpacity>
       </View>
 
+      <TurnoIndicator />
+      <EspejoIndicator />
+
       <View style={styles.card}>
-        <Text style={styles.pregunta}>{pregunta.pregunta}</Text>
+        <Text style={styles.pregunta}>{item.pregunta}</Text>
       </View>
 
       <Text style={styles.regla}>
-        Todos señalan al mismo tiempo.{'\n'}
-        El más señalado toma. 🍺
+        Todos señalan al mismo tiempo.{'\n'}El más señalado toma. 🍺
       </Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.btnSiguiente} onPress={siguiente}>
+        <TouchableOpacity style={[styles.btnSiguiente, esUltima && styles.btnFinal]} onPress={siguiente}>
           <Text style={styles.btnSiguienteText}>
-            Siguiente ({MAX_SALTOS - saltos} restantes)
+            {esUltima ? 'Terminar ronda' : `Siguiente → (${ronda}/${TOTAL_RONDAS})`}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.btnTerminar}
-          onPress={() => navigation.navigate('EndRound')}
-        >
-          <Text style={styles.btnTerminarText}>Terminar ronda</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -88,22 +98,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 32,
-    flexWrap: 'wrap',
+    marginBottom: 12,
     gap: 8,
   },
   title: {
     color: '#D4537E',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
   },
-  saltosText: {
-    color: '#888',
-    fontSize: 14,
+  rondaText: {
+    color: '#D4537E',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
+  btnInfo: { padding: 4 },
+  btnInfoText: { fontSize: 22 },
   card: {
     backgroundColor: '#1e0a18',
     borderRadius: 20,
@@ -114,68 +125,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  pregunta: {
-    color: '#fff',
-    fontSize: 26,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    lineHeight: 34,
-  },
-  regla: {
-    color: '#888',
-    fontSize: 18,
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 40,
-  },
+  pregunta: { color: '#fff', fontSize: 26, textAlign: 'center', fontWeight: 'bold', lineHeight: 34 },
+  regla: { color: '#888', fontSize: 18, textAlign: 'center', lineHeight: 26, marginBottom: 40 },
   actions: {
     position: 'absolute',
     bottom: 40,
     left: 24,
     right: 24,
-    gap: 12,
   },
   btnSiguiente: {
     backgroundColor: '#D4537E',
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
   },
-  btnSiguienteText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  btnTerminar: {
+  btnFinal: {
     backgroundColor: '#1a1a2e',
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#D4537E',
   },
-  btnTerminarText: {
-    color: '#D4537E',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  penaltyBox: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  penaltyEmoji: {
-    fontSize: 72,
-    marginBottom: 16,
-  },
-  penaltyText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  penaltySubtext: {
-    color: '#D4537E',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
+  btnSiguienteText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

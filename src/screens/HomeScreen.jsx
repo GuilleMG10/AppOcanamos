@@ -14,13 +14,13 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
-      <Text style={styles.subtitle}>El juego de la parrillada</Text>
+      <Text style={styles.subtitle}>El juego para cañarse entre reales</Text>
 
       <TouchableOpacity style={styles.btnPrimary} onPress={handleStart}>
         <Text style={styles.btnText}>Nueva partida</Text>
       </TouchableOpacity>
 
-      <Text style={styles.footer}>Para reuniones y parrilladas 🥩</Text>
+      <Text style={styles.footer}>Para cañarse entre reales 🍺</Text>
     </View>
   );
 }

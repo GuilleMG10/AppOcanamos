@@ -33,11 +33,21 @@ export default function PlayersScreen({ navigation }) {
     navigation.navigate('Reveal');
   }
 
+  function volver() {
+    navigation.goBack();
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={volver} style={styles.btnBack}>
+          <Text style={styles.btnBackText}>← Volver</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>Jugadores</Text>
       <Text style={styles.subtitle}>¿Quiénes van a jugar?</Text>
 
@@ -92,6 +102,17 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
   },
+  headerRow: {
+    marginBottom: 8,
+  },
+  btnBack: {
+    alignSelf: 'flex-start',
+  },
+  btnBackText: {
+    color: '#EF9F27',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   title: {
     color: '#EF9F27',
     fontSize: 32,
@@ -130,9 +151,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
-  list: {
-    flex: 1,
-  },
+  list: { flex: 1 },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -146,9 +165,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
   },
-  btnRemove: {
-    padding: 8,
-  },
+  btnRemove: { padding: 8 },
   btnRemoveText: {
     color: '#E24B4A',
     fontSize: 18,
@@ -166,9 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
   },
-  btnDisabled: {
-    backgroundColor: '#5a4010',
-  },
+  btnDisabled: { backgroundColor: '#5a4010' },
   btnStartText: {
     color: '#0a0a14',
     fontSize: 20,

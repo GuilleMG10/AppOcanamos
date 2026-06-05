@@ -1,23 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import EspejoIndicator from '../components/EspejoIndicator';
+import ReglasModal from '../components/ReglasModal';
+import TurnoIndicator from '../components/TurnoIndicator';
+import BackToHomeButton from '../components/BackToHomeButton';
+
+const REGLAS = [
+  'El jugador activo elige una categoría en voz alta (ej: capitales, jugadores de fútbol, marcas de autos...)',
+  'El grupo va nombrando cosas de esa categoría en orden',
+  'El primero que no pueda nombrar una o que repita una ya dicha, toma',
+];
 
 export default function CulturaChupistica({ navigation }) {
+  const [reglasVisible, setReglasVisible] = useState(false);
+
   return (
     <View style={styles.container}>
+      <ReglasModal visible={reglasVisible} onClose={() => setReglasVisible(false)} titulo="🧠 Cultura Chupística — Reglas" color="#5DCAA5" reglas={REGLAS} />
+
+      <View style={styles.titleRow}>
+        <BackToHomeButton navigation={navigation} />
+        <Text style={styles.title}>Cultura Chupística</Text>
+        <TouchableOpacity onPress={() => setReglasVisible(true)} style={styles.btnInfo}>
+          <Text style={styles.btnInfoText}>ℹ️</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TurnoIndicator />
+      <EspejoIndicator />
+
       <Text style={styles.emoji}>🧠</Text>
-      <Text style={styles.title}>Cultura Chupística</Text>
-      <Text style={styles.subtitle}>
-        Es hora de Cultura Chupística
-      </Text>
+      <Text style={styles.subtitle}>Es hora de Cultura Chupística</Text>
       <Text style={styles.instruccion}>
         El jugador activo pone la categoría en voz alta.{'\n'}
         El grupo juega y el que falla... toma.
       </Text>
 
-      <TouchableOpacity
-        style={styles.btnSiguiente}
-        onPress={() => navigation.navigate('EndRound')}
-      >
+      <TouchableOpacity style={styles.btnSiguiente} onPress={() => navigation.navigate('EndRound')}>
         <Text style={styles.btnSiguienteText}>Siguiente ronda</Text>
       </TouchableOpacity>
     </View>
@@ -32,16 +51,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
-  emoji: {
-    fontSize: 80,
-    marginBottom: 24,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 12,
   },
   title: {
     color: '#5DCAA5',
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 16,
+    flex: 1,
+  },
+  btnInfo: { padding: 6 },
+  btnInfoText: { fontSize: 24 },
+  emoji: {
+    fontSize: 80,
+    marginBottom: 24,
   },
   subtitle: {
     color: '#fff',

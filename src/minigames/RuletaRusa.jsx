@@ -1,21 +1,28 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { useGame } from '../context/GameContext';
+import EspejoIndicator from '../components/EspejoIndicator';
+import ReglasModal from '../components/ReglasModal';
+import BackToHomeButton from '../components/BackToHomeButton';
+import { Sounds } from '../utils/sounds';
+
+const REGLAS = [
+  '6 cámaras, una tiene la bala en posición aleatoria',
+  'Cualquiera puede apretar el gatillo — no hay turno fijo',
+  'Disparo seguro → pasá el celular al siguiente',
+  'Disparo con bala → el que apretó toma un vaso entero',
+  'La ronda termina cuando cae la bala',
+];
 
 export default function RuletaRusa({ navigation }) {
-  const { state } = useGame();
-  const jugadores = state.jugadores;
-
   const [balaPos] = useState(() => Math.floor(Math.random() * 6));
   const [disparados, setDisparados] = useState([]);
-  const [jugadorIdx, setJugadorIdx] = useState(state.turnoActual);
   const [resultado, setResultado] = useState(null);
+  const [reglasVisible, setReglasVisible] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   const camaraActual = disparados.length;
   const restantes = 6 - camaraActual;
   const porcentaje = restantes > 0 ? Math.round((1 / restantes) * 100) : 0;
-  const jugador = jugadores[jugadorIdx % jugadores.length];
   const terminado = resultado === 'bala' || camaraActual >= 6;
 
   function disparar() {
@@ -31,25 +38,27 @@ export default function RuletaRusa({ navigation }) {
         Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
       ]).start();
       setResultado('bala');
+      Sounds.bala();
     } else {
       setResultado('seguro');
     }
   }
 
-  function siguienteJugador() {
-    setResultado(null);
-    setJugadorIdx(prev => (prev + 1) % jugadores.length);
-  }
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🔫 Ruleta Rusa</Text>
+      <ReglasModal visible={reglasVisible} onClose={() => setReglasVisible(false)} titulo="🔫 Ruleta Rusa — Reglas" color="#E24B4A" reglas={REGLAS} />
 
-      {jugador && !terminado && (
-        <Text style={styles.turno}>
-          Turno de <Text style={styles.turnoNombre}>{jugador.nombre}</Text>
-        </Text>
-      )}
+      <View style={styles.titleRow}>
+        <BackToHomeButton navigation={navigation} />
+        <Text style={styles.title}>🔫 Ruleta Rusa</Text>
+        <TouchableOpacity onPress={() => setReglasVisible(true)} style={styles.btnInfo}>
+          <Text style={styles.btnInfoText}>ℹ️</Text>
+        </TouchableOpacity>
+      </View>
+
+      <EspejoIndicator />
+
+      <Text style={styles.instruccion}>Pasá el celular de mano en mano 📱</Text>
 
       <View style={styles.camaras}>
         {Array(6).fill(null).map((_, i) => {
@@ -84,14 +93,12 @@ export default function RuletaRusa({ navigation }) {
       )}
 
       {resultado === 'seguro' && !terminado && (
-        <Text style={styles.resultadoSeguro}>😅 SALVADO</Text>
+        <Text style={styles.resultadoSeguro}>😅 SALVADO — pasá el celular</Text>
       )}
 
       {resultado === 'bala' && (
         <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
-          <Text style={styles.resultadoBala}>
-            💥 {jugador?.nombre} tomá un vaso entero
-          </Text>
+          <Text style={styles.resultadoBala}>💥 ¡BALA! Tomá un vaso entero</Text>
         </Animated.View>
       )}
 
@@ -102,16 +109,13 @@ export default function RuletaRusa({ navigation }) {
       )}
 
       {resultado === 'seguro' && !terminado && (
-        <TouchableOpacity style={styles.btnSiguiente} onPress={siguienteJugador}>
-          <Text style={styles.btnSiguienteText}>Siguiente jugador →</Text>
+        <TouchableOpacity style={styles.btnSiguiente} onPress={() => setResultado(null)}>
+          <Text style={styles.btnSiguienteText}>Listo, ya pasé el celular →</Text>
         </TouchableOpacity>
       )}
 
       {terminado && (
-        <TouchableOpacity
-          style={styles.btnTerminar}
-          onPress={() => navigation.navigate('EndRound')}
-        >
+        <TouchableOpacity style={styles.btnTerminar} onPress={() => navigation.navigate('EndRound')}>
           <Text style={styles.btnTerminarText}>Terminar ronda</Text>
         </TouchableOpacity>
       )}
@@ -127,20 +131,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-  title: {
-    color: '#E24B4A',
-    fontSize: 28,
-    fontWeight: 'bold',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: 8,
   },
-  turno: {
-    color: '#888',
-    fontSize: 18,
-    marginBottom: 32,
-  },
-  turnoNombre: {
-    color: '#fff',
-    fontWeight: 'bold',
+  title: { color: '#E24B4A', fontSize: 28, fontWeight: 'bold' },
+  btnInfo: { padding: 6 },
+  btnInfoText: { fontSize: 24 },
+  instruccion: {
+    color: '#555',
+    fontSize: 15,
+    marginBottom: 28,
   },
   camaras: {
     flexDirection: 'row',
@@ -167,21 +171,17 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 24,
   },
-  probText: {
-    color: '#E24B4A',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  probText: { color: '#E24B4A', fontSize: 18, fontWeight: 'bold' },
   resultadoSeguro: {
     color: '#5DCAA5',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 24,
   },
   resultadoBala: {
     color: '#E24B4A',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 24,
@@ -193,23 +193,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
   },
-  btnDispararText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  btnDispararText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   btnSiguiente: {
     backgroundColor: '#333',
     paddingVertical: 16,
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
     borderRadius: 16,
     alignItems: 'center',
   },
-  btnSiguienteText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  btnSiguienteText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   btnTerminar: {
     backgroundColor: '#1a1a2e',
     paddingVertical: 16,
@@ -220,9 +212,5 @@ const styles = StyleSheet.create({
     borderColor: '#E24B4A',
     marginTop: 16,
   },
-  btnTerminarText: {
-    color: '#E24B4A',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  btnTerminarText: { color: '#E24B4A', fontSize: 18, fontWeight: 'bold' },
 });

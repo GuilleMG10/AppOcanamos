@@ -1,47 +1,83 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { cartas } from '../data/cartas';
+import EspejoIndicator from '../components/EspejoIndicator';
+import ReglasModal from '../components/ReglasModal';
+import TurnoIndicator from '../components/TurnoIndicator';
+import BackToHomeButton from '../components/BackToHomeButton';
 
-const MAX_SALTOS = 3;
+const TOTAL_RONDAS = 3;
+const SORBOS_POR_FALLA = 2;
+const _usadasSesion = new Set();
 
-function cartaAleatoria() {
-  return cartas[Math.floor(Math.random() * cartas.length)];
+const REGLAS = [
+  'Se juegan 3 cartas en total',
+  '✅ Lo hice → pasás a la siguiente sin castigo',
+  `❌ No lo hice → se acumulan ${SORBOS_POR_FALLA} sorbos de castigo`,
+  'Al final se muestra el total acumulado para tomar',
+];
+
+function cartaAleatoria(usadas) {
+  const disponibles = cartas.filter((_, i) => !usadas.includes(i) && !_usadasSesion.has(i));
+  const pool = disponibles.length > 0 ? disponibles : cartas.filter((_, i) => !usadas.includes(i));
+  if (pool.length === 0) return { item: cartas[0], index: 0 };
+  const idx = Math.floor(Math.random() * pool.length);
+  const item = pool[idx];
+  const index = cartas.indexOf(item);
+  _usadasSesion.add(index);
+  return { item, index };
 }
 
 export default function Cartas({ navigation }) {
-  const [carta, setCarta] = useState(cartaAleatoria());
-  const [respuestaVisible, setRespuestaVisible] = useState(false);
-  const [saltos, setSaltos] = useState(0);
-  const [penalizado, setPenalizado] = useState(false);
+  const [usadas, setUsadas] = useState([]);
+  const [{ item: carta, index }, setActual] = useState(() => {
+    const i = Math.floor(Math.random() * cartas.length);
+    _usadasSesion.add(i);
+    return { item: cartas[i], index: i };
+  });
+  const [ronda, setRonda] = useState(1);
+  const [sorbosAcumulados, setSorbosAcumulados] = useState(0);
+  const [fase, setFase] = useState('jugando'); // jugando | resultado
+  const [reglasVisible, setReglasVisible] = useState(false);
 
-  function nuevaCarta() {
-    setCarta(cartaAleatoria());
-    setRespuestaVisible(false);
-  }
+  function avanzar(lohizo) {
+    const nuevosSorbos = sorbosAcumulados + (lohizo ? 0 : SORBOS_POR_FALLA);
+    const nuevasUsadas = [...usadas, index];
+    const siguienteRonda = ronda + 1;
 
-  function saltar() {
-    const nuevosSaltos = saltos + 1;
-    setSaltos(nuevosSaltos);
-    if (nuevosSaltos >= MAX_SALTOS) {
-      setPenalizado(true);
-    } else {
-      nuevaCarta();
+    if (siguienteRonda > TOTAL_RONDAS) {
+      setSorbosAcumulados(nuevosSorbos);
+      setFase('resultado');
+      return;
     }
+
+    setSorbosAcumulados(nuevosSorbos);
+    setUsadas(nuevasUsadas);
+    setActual(cartaAleatoria(nuevasUsadas));
+    setRonda(siguienteRonda);
   }
 
-  if (penalizado) {
+  if (fase === 'resultado') {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>🃏 Cartas</Text>
-        <View style={styles.penaltyBox}>
-          <Text style={styles.penaltyEmoji}>🍺</Text>
-          <Text style={styles.penaltyText}>Saltaste 3 veces</Text>
-          <Text style={styles.penaltySubtext}>Tomá 2 sorbos</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.btnTerminar}
-          onPress={() => navigation.navigate('EndRound')}
-        >
+        {sorbosAcumulados === 0 ? (
+          <View style={styles.resultBox}>
+            <Text style={styles.resultEmoji}>🎉</Text>
+            <Text style={styles.resultTexto}>¡Lo hiciste todo!</Text>
+            <Text style={styles.resultSub}>Nadie toma</Text>
+          </View>
+        ) : (
+          <View style={styles.resultBox}>
+            <Text style={styles.resultEmoji}>🍺</Text>
+            <Text style={styles.resultTexto}>Acumulaste</Text>
+            <Text style={styles.resultSorbos}>{sorbosAcumulados} sorbos</Text>
+            <Text style={styles.resultSub}>
+              {sorbosAcumulados / SORBOS_POR_FALLA} carta{sorbosAcumulados / SORBOS_POR_FALLA > 1 ? 's' : ''} no hecha{sorbosAcumulados / SORBOS_POR_FALLA > 1 ? 's' : ''}
+            </Text>
+          </View>
+        )}
+        <TouchableOpacity style={styles.btnTerminar} onPress={() => navigation.navigate('EndRound')}>
           <Text style={styles.btnTerminarText}>Terminar ronda</Text>
         </TouchableOpacity>
       </View>
@@ -50,12 +86,25 @@ export default function Cartas({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <ReglasModal visible={reglasVisible} onClose={() => setReglasVisible(false)} titulo="🃏 Cartas — Reglas" color="#7F77DD" reglas={REGLAS} />
+
       <View style={styles.header}>
+        <BackToHomeButton navigation={navigation} />
         <Text style={styles.title}>🃏 Cartas</Text>
-        {saltos > 0 && (
-          <Text style={styles.saltosText}>Saltos: {saltos}/{MAX_SALTOS}</Text>
-        )}
+        <Text style={styles.rondaText}>{ronda}/{TOTAL_RONDAS}</Text>
+        <TouchableOpacity onPress={() => setReglasVisible(true)} style={styles.btnInfo}>
+          <Text style={styles.btnInfoText}>ℹ️</Text>
+        </TouchableOpacity>
       </View>
+
+      <TurnoIndicator />
+      <EspejoIndicator />
+
+      {sorbosAcumulados > 0 && (
+        <View style={styles.contadorBox}>
+          <Text style={styles.contadorText}>🍺 Acumulados: {sorbosAcumulados} sorbos</Text>
+        </View>
+      )}
 
       <View style={styles.stack}>
         <View style={[styles.card, styles.card3]} />
@@ -63,44 +112,18 @@ export default function Cartas({ navigation }) {
         <View style={[styles.card, styles.card1]}>
           <Text style={styles.tipo}>{carta.tipo === 'reto' ? '🔥 RETO' : '❓ PREGUNTA'}</Text>
           <Text style={styles.texto}>{carta.texto}</Text>
-
-          {carta.tipo === 'pregunta' && !respuestaVisible && (
-            <TouchableOpacity
-              style={styles.btnVerResp}
-              onPress={() => setRespuestaVisible(true)}
-            >
-              <Text style={styles.btnVerRespText}>Ver respuesta</Text>
-            </TouchableOpacity>
-          )}
-
-          {carta.tipo === 'pregunta' && respuestaVisible && (
-            <View style={styles.respuestaBox}>
-              <Text style={styles.respuestaLabel}>Respuesta:</Text>
-              <Text style={styles.respuesta}>{carta.respuesta}</Text>
-            </View>
-          )}
         </View>
       </View>
 
-      {carta.tipo === 'reto' && (
-        <View style={styles.retoActions}>
-          <TouchableOpacity style={styles.btnHice} onPress={nuevaCarta}>
-            <Text style={styles.btnHiceText}>✅ Lo hice</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnSaltar} onPress={saltar}>
-            <Text style={styles.btnSaltarText}>
-              ⏭ Saltar ({MAX_SALTOS - saltos})
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={styles.btnTerminar}
-        onPress={() => navigation.navigate('EndRound')}
-      >
-        <Text style={styles.btnTerminarText}>Terminar ronda</Text>
-      </TouchableOpacity>
+      <View style={styles.acciones}>
+        <TouchableOpacity style={styles.btnHice} onPress={() => avanzar(true)}>
+          <Text style={styles.btnHiceText}>✅ Lo hice</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnNoHice} onPress={() => avanzar(false)}>
+          <Text style={styles.btnNoHiceText}>❌ No lo hice</Text>
+          <Text style={styles.btnNoHiceSub}>+{SORBOS_POR_FALLA} sorbos</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -116,25 +139,47 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 12,
+    gap: 8,
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    right: 24,
   },
   title: {
     color: '#7F77DD',
-    fontSize: 28,
+    fontSize: 26,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  rondaText: {
+    color: '#7F77DD',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  saltosText: {
-    color: '#888',
+  btnInfo: { padding: 4 },
+  btnInfoText: { fontSize: 22 },
+  contadorBox: {
+    backgroundColor: '#1e1a3e',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#7F77DD',
+  },
+  contadorText: {
+    color: '#7F77DD',
     fontSize: 14,
+    fontWeight: 'bold',
   },
   stack: {
     width: '100%',
-    height: 280,
+    height: 240,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   card: {
     position: 'absolute',
@@ -146,97 +191,46 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 240,
+    minHeight: 200,
   },
   card3: { transform: [{ rotate: '-4deg' }, { translateY: 8 }], opacity: 0.4 },
   card2: { transform: [{ rotate: '2deg' }, { translateY: 4 }], opacity: 0.7 },
-  card1: { transform: [{ rotate: '0deg' }] },
-  tipo: {
-    color: '#7F77DD',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  texto: {
-    color: '#fff',
-    fontSize: 20,
-    textAlign: 'center',
-    lineHeight: 28,
-  },
-  btnVerResp: {
-    marginTop: 20,
-    backgroundColor: '#7F77DD',
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-  },
-  btnVerRespText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  respuestaBox: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  respuestaLabel: {
-    color: '#7F77DD',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  respuesta: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  retoActions: {
+  card1: {},
+  tipo: { color: '#7F77DD', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  texto: { color: '#fff', fontSize: 20, textAlign: 'center', lineHeight: 28 },
+  acciones: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
+    gap: 12,
+    width: '100%',
   },
   btnHice: {
     flex: 1,
     backgroundColor: '#5DCAA5',
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderRadius: 14,
     alignItems: 'center',
   },
-  btnHiceText: {
-    color: '#0a0a14',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  btnSaltar: {
+  btnHiceText: { color: '#0a0a14', fontWeight: 'bold', fontSize: 16 },
+  btnNoHice: {
     flex: 1,
-    backgroundColor: '#333',
+    backgroundColor: '#2a1a1a',
+    borderWidth: 1,
+    borderColor: '#E24B4A',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
-  btnSaltarText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  penaltyBox: {
+  btnNoHiceText: { color: '#E24B4A', fontWeight: 'bold', fontSize: 16 },
+  btnNoHiceSub: { color: '#E24B4A', fontSize: 12, opacity: 0.8, marginTop: 2 },
+  resultBox: {
     alignItems: 'center',
     marginBottom: 40,
+    gap: 8,
   },
-  penaltyEmoji: {
-    fontSize: 72,
-    marginBottom: 16,
-  },
-  penaltyText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  penaltySubtext: {
-    color: '#7F77DD',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
+  resultEmoji: { fontSize: 80 },
+  resultTexto: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+  resultSorbos: { color: '#7F77DD', fontSize: 48, fontWeight: 'bold' },
+  resultSub: { color: '#888', fontSize: 16 },
   btnTerminar: {
     position: 'absolute',
     bottom: 40,
@@ -249,9 +243,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#7F77DD',
   },
-  btnTerminarText: {
-    color: '#7F77DD',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  btnTerminarText: { color: '#7F77DD', fontSize: 18, fontWeight: 'bold' },
 });

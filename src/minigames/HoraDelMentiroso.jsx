@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import EspejoIndicator from '../components/EspejoIndicator';
+import ReglasModal from '../components/ReglasModal';
+import TurnoIndicator from '../components/TurnoIndicator';
+import BackToHomeButton from '../components/BackToHomeButton';
 
 const CANTIDADES = ['1 sorbo', '2 sorbos', '3 sorbos', '4 sorbos', 'medio vaso', '1 vaso', '2 vasos'];
+
+const REGLAS = [
+  'Solo el jugador activo ve la tarjeta con una cantidad de bebida',
+  'Puede declarar esa cantidad en voz alta (verdad) o inventar otra (mentira)',
+  'El grupo vota: ¿Verdad o Mentiroso?',
+  'Dijo verdad y le creen → nadie toma',
+  'Dijo verdad y no le creen → todos toman lo de la tarjeta',
+  'Mintió y lo descubren → el jugador toma el doble de la tarjeta',
+  'Mintió y le creen → todos toman lo que él declaró',
+];
 
 function cantidadAleatoria() {
   return CANTIDADES[Math.floor(Math.random() * CANTIDADES.length)];
@@ -21,13 +35,25 @@ function duplicar(cant) {
 }
 
 export default function HoraDelMentiroso({ navigation }) {
-  const [cantidad] = useState(cantidadAleatoria());
+  const [cantidad] = useState(cantidadAleatoria);
   const [revelado, setRevelado] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [reglasVisible, setReglasVisible] = useState(false);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🤥 Hora del Mentiroso</Text>
+      <ReglasModal visible={reglasVisible} onClose={() => setReglasVisible(false)} titulo="🤥 Hora del Mentiroso — Reglas" color="#EF9F27" reglas={REGLAS} />
+
+      <View style={styles.titleRow}>
+        <BackToHomeButton navigation={navigation} />
+        <Text style={styles.title}>🤥 Hora del Mentiroso</Text>
+        <TouchableOpacity onPress={() => setReglasVisible(true)} style={styles.btnInfo}>
+          <Text style={styles.btnInfoText}>ℹ️</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TurnoIndicator />
+      <EspejoIndicator />
 
       <View style={styles.card}>
         {!revelado ? (
@@ -62,44 +88,23 @@ export default function HoraDelMentiroso({ navigation }) {
         <View style={styles.resultadoBox}>
           <Text style={styles.resultadoTitle}>Resultado:</Text>
           <View style={styles.resultado}>
-            <TouchableOpacity
-              style={[styles.opcion, resultado === 'verdad' && styles.opcionActiva]}
-              onPress={() => setResultado('verdad')}
-            >
+            <TouchableOpacity style={[styles.opcion]} onPress={() => setResultado('verdad')}>
               <Text style={styles.opcionText}>Dijo verdad y le creyeron → nadie toma</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.opcion, styles.opcionWarn]}
-              onPress={() => setResultado('verdad-nocreyeron')}
-            >
-              <Text style={styles.opcionText}>
-                Dijo verdad pero no le creyeron → todos toman {cantidad}
-              </Text>
+            <TouchableOpacity style={[styles.opcion, styles.opcionWarn]} onPress={() => setResultado('verdad-nocreyeron')}>
+              <Text style={styles.opcionText}>Dijo verdad pero no le creyeron → todos toman {cantidad}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.opcion, styles.opcionDanger]}
-              onPress={() => setResultado('mintio-descubierto')}
-            >
-              <Text style={styles.opcionText}>
-                Mintió y lo descubrieron → toma el doble: {duplicar(cantidad)}
-              </Text>
+            <TouchableOpacity style={[styles.opcion, styles.opcionDanger]} onPress={() => setResultado('mintio-descubierto')}>
+              <Text style={styles.opcionText}>Mintió y lo descubrieron → toma el doble: {duplicar(cantidad)}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.opcion, styles.opcionWarn]}
-              onPress={() => setResultado('mintio-creyeron')}
-            >
-              <Text style={styles.opcionText}>
-                Mintió y le creyeron → todos toman lo declarado
-              </Text>
+            <TouchableOpacity style={[styles.opcion, styles.opcionWarn]} onPress={() => setResultado('mintio-creyeron')}>
+              <Text style={styles.opcionText}>Mintió y le creyeron → todos toman lo declarado</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.btnTerminar}
-        onPress={() => navigation.navigate('EndRound')}
-      >
+      <TouchableOpacity style={styles.btnTerminar} onPress={() => navigation.navigate('EndRound')}>
         <Text style={styles.btnTerminarText}>Terminar ronda</Text>
       </TouchableOpacity>
     </View>
@@ -113,13 +118,20 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   title: {
     color: '#EF9F27',
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 24,
+    flex: 1,
   },
+  btnInfo: { padding: 6 },
+  btnInfoText: { fontSize: 24 },
   card: {
     backgroundColor: '#1e1500',
     borderRadius: 20,
@@ -203,10 +215,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: '#333',
-  },
-  opcionActiva: {
-    borderColor: '#5DCAA5',
-    backgroundColor: '#0a1a14',
   },
   opcionWarn: {
     borderColor: '#EF9F27',
